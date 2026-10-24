@@ -37,8 +37,9 @@ Maybe part of the challenge for the game could be that when they are still and m
 <!-- Written by the agent. Each step small enough to check on your phone. -->
 
 ### Notes for the agent (read first)
-- Build with p5.js 2 and p5-phone 1.15.0. Follow the p5js-2x and p5-phone skills. No `preload()`. Use `mousePressed` / `mouseReleased`, not `touchStarted`. Read motion from p5's own `accelerationX/Y/Z` and `pAccelerationX/Y/Z`.
+- Build with p5.js 2 and p5-phone 1.15.3, the version `index.html` loads. Follow the p5js-2x and p5-phone skills. No `preload()`. Use `mousePressed` / `mouseReleased`, not `touchStarted`, and `return false` from them so p5-phone keeps managing the touch. Read motion from p5's own `accelerationX/Y/Z` and `pAccelerationX/Y/Z`.
 - Do not use `rotationRateAlpha/Beta/Gamma`. The p5js-2x skill lists them, but the p5-phone skill says p5.js has no such globals and reading them throws an error every frame. Follow p5-phone.
+- For the drawn objects: p5.js 2 renamed the curves. `curveVertex` is now `splineVertex` and `curve()` is now `spline()`. Never call `curveVertex`.
 - Change only `sketch.js`. Assume `index.html` already loads p5 2.x, p5-phone and the viewport tag. If it does not, stop and tell me instead of editing it.
 - Build one step, then stop and wait for me to check it on my phone.
 - Put every tuning number in one labelled block at the top of `sketch.js`, in capitals, with a short comment saying what it does. Starting values below are guesses for me to tune.
@@ -52,14 +53,14 @@ Maybe part of the challenge for the game could be that when they are still and m
 
 ### Step 2: Tap to start and motion permission
 - **Build:** A small "tap to start" near the bottom, centred, shown only before start. Tapping it asks for motion permission. Once permission is given, the text disappears for good and the screen stays black. Never ask for permission without a tap. On a laptop, do not show the text.
-- **Use:** `createDiv('tap to start')` with an id, positioned and styled small; `enableSensorOn('#start')`; hide the element with `select('#start').hide()` once `window.sensorsEnabled` is true; `window.isDesktop` to skip it on laptops.
+- **Use:** `createDiv('tap to start')` with an id, positioned and styled small; `enableGyroOn('#start')` (the p5-phone skill says to write `enableGyro*`, not its `enableSensor*` alias); hide the element with `select('#start').hide()` once `window.sensorsEnabled` is true; `window.isDesktop` to skip it on laptops.
 - **Laptop:** Same as Step 1, with no "tap to start".
 - **Phone:** The small text sits near the bottom. Tapping it brings up the motion permission prompt on iPhone (Android just starts). After I allow it, the text is gone. If I deny it, the screen stays black and nothing breaks.
 - **New numbers:** `TAP_TEXT_Y = 0.94` (how far down the screen, as a fraction of its height), `TAP_TEXT_SIZE = 16` (pixels).
 
 ### Step 3: Keep the screen on
 - **Build:** When I tap to start, ask the browser to keep the screen on. Ask again whenever the page comes back into view. If the browser refuses, log a warning and carry on.
-- **Use:** `navigator.wakeLock.request('screen')` inside `try`/`catch`, called from `mouseReleased()` (not `mousePressed()` and not `userSetupComplete()`). Check `'wakeLock' in navigator` first. Add a `visibilitychange` listener that asks again when the page is visible. Log problems with `debugWarn()`.
+- **Use:** `navigator.wakeLock.request('screen')` inside `try`/`catch`. The first tap lands on the `#start` div from Step 2, not on the canvas, so p5's `mouseReleased()` never sees it: bind the request to that element's own finger-lift with `select('#start').elt.addEventListener('pointerup', …)`, which counts as a finished gesture on iPhone. Ask on finger-lift, not on press, and never from `userSetupComplete()`. Keep p5's `mouseReleased()` as a second path that re-requests if the lock is missing. Check `'wakeLock' in navigator` first. Add a `visibilitychange` listener that asks again when the page is visible. Log problems with `debugWarn()`.
 - **Laptop:** Nothing visible.
 - **Phone:** After the start tap, leave the phone untouched for a full minute. The screen stays on and does not dim or lock. Switch to another app and back, and it stays on again. This only works on a page served over HTTPS, and it fails in the p5 web editor preview.
 - **New numbers:** none.
@@ -81,15 +82,15 @@ Maybe part of the challenge for the game could be that when they are still and m
 
 ### Step 6: Draw the glow, standing still
 - **Build:** Draw the glow as in the layout: centred across the screen, sitting low, below the middle, with a bright core and a warm, soft edge that fades out. Nothing else on screen. No movement yet.
-- **Use:** Layered circles with `noStroke()`, from the biggest and faintest to the smallest and brightest, using `color()` with alpha, sized from `width`.
+- **Use:** Layered circles with `noStroke()`, from the biggest and faintest to the smallest and brightest, using `color()` with alpha. Size everything from `min(width, height)`, not `width`, so turning the phone sideways never makes the glow bigger than the screen. Step 11 checks this.
 - **Laptop and phone:** Black, with one warm amber glow low on the screen. The edge is soft, not a hard disk. After the start tap, nothing else is visible.
-- **New numbers:** `GLOW_Y = 0.65` (centre, as a fraction of screen height), `GLOW_SIZE = 0.75` (outer edge, as a fraction of screen width), `CORE_SIZE = 0.48` (bright core, as a fraction of screen width), `GLOW_LAYERS = 30` (more is smoother), `GLOW_COLOR` (warm amber).
+- **New numbers:** `GLOW_Y = 0.65` (centre, as a fraction of screen height), `GLOW_SIZE = 0.75` (outer edge) and `CORE_SIZE = 0.48` (bright core), both as fractions of the smaller screen side, `GLOW_LAYERS = 30` (more is smoother), `GLOW_COLOR` (warm amber).
 
 ### Step 7: Walking drives the glow
-- **Build:** One glow level from 0 to 1. Walking pulls it up to 1 in about 1 second. Not walking pulls it down toward almost dark in about 5 seconds. At 1 the glow is bright and a little bigger. At the bottom it is almost dark, but never fully black. Make the fade work the same at any frame rate.
+- **Build:** One glow level from 0 to 1. Walking pulls it up to 1 in about 1 second. Not walking pulls it down toward almost dark in about 5 seconds. At 1 the glow is bright and a little bigger. At the bottom it is almost dark, but never fully black. Make the fade work the same at any frame rate. Two cases keep the glow lit at full level with no fading, like the laptop: the page has not been started yet, or motion permission was denied or unavailable. Otherwise the lit glow from the layout would dim to black under the "tap to start" text, and a denial would leave the screen dead with no feedback.
 - **Use:** `deltaTime`, `lerp()`, `map()`, `constrain()`.
-- **Laptop:** There is no walking, so the glow just stays lit at full level.
-- **Phone:** This is the main check. Walk: the glow is bright and a little bigger. Stop: it fades over about 5 seconds to almost dark, and is still faintly there. Walk again: it is back in about 1 second. Does dim feel nervous, and does bright feel like relief?
+- **Laptop:** The glow just stays lit at full level, with no walking.
+- **Phone:** This is the main check. Before I tap start, the glow is already lit and stays lit. If I deny permission, it stays lit and nothing breaks. Walk: the glow is bright and a little bigger. Stop: it fades over about 5 seconds to almost dark, and is still faintly there. Walk again: it is back in about 1 second. Does dim feel nervous, and does bright feel like relief?
 - **New numbers:** `FADE_IN_S = 1`, `FADE_OUT_S = 5`, `GLOW_MIN = 0.06` (how dark "almost dark" is), `BIG_SCALE = 1.15` (how much bigger it gets).
 
 ### Step 8: Each lantern its own colour
@@ -100,9 +101,9 @@ Maybe part of the challenge for the game could be that when they are still and m
 
 ### Step 9: An object inside the glow (candle)
 - **Build:** Draw a simple object inside the bright core, in the same place and at the same size the core sits in the layout. Start with a candle flame only, drawn with p5 shapes. It dims and brightens with the glow.
-- **Use:** `beginShape()` / `endShape()`, `ellipse()`, `lerp()`.
+- **Use:** `beginShape()` / `endShape()` with `splineVertex()` for any curved outline (never `curveVertex`), `ellipse()`, `lerp()`.
 - **Laptop and phone:** A small flame sits in the core. When the glow fades, the flame fades with it.
-- **New numbers:** `OBJECT_SIZE = 0.25` (fraction of screen width).
+- **New numbers:** `OBJECT_SIZE = 0.25` (fraction of the smaller screen side, so the object stays inside the core when the phone is sideways).
 
 ### Step 10: More objects
 - **Build:** Add a light bulb and a jack-o'-lantern, one at a time, each drawn with p5 shapes. At page load, pick one of the objects at random.

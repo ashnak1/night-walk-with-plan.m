@@ -1,7 +1,13 @@
 function setup() {
-  createCanvas(400, 400);
+  createCanvas(windowWidth, windowHeight);
+  lockGestures();
+  showDesktopQr({ label: 'Scan to open on your phone' });
 }
 
 function draw() {
-  background(220);
+  background(0);
+}
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
 }
