@@ -4,6 +4,8 @@ const TAP_TEXT_SIZE = 16;  // "tap to start" text size in pixels
 // ------------------------------------
 
 let startText;
+let wakeLock = null;
+let wantAwake = false;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -20,10 +22,47 @@ function setup() {
     startText.style('top', TAP_TEXT_Y * 100 + '%');
     startText.style('color', 'white');
     startText.style('font-size', TAP_TEXT_SIZE + 'px');
+
+    // The first tap lands on this div, not the canvas, so p5's mouseReleased()
+    // never sees it. Ask for the wake lock on the div's own finger-lift: iPhone
+    // counts a touch as one gesture when the finger lifts, not when it presses.
+    startText.elt.addEventListener('pointerup', () => {
+      wantAwake = true;
+      requestWakeLock();
+    });
+
     enableGyroOn('#start');
   }
 
+  // The browser drops the lock whenever the page is hidden and it never comes
+  // back by itself, so ask again once the page is visible.
+  document.addEventListener('visibilitychange', () => {
+    if (wantAwake && document.visibilityState === 'visible') {
+      requestWakeLock();
+    }
+  });
+
   showDesktopQr({ label: 'Scan to open on your phone' });
+}
+
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) {
+    return;
+  }
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+  } catch (err) {
+    debugWarn('Wake lock refused: ' + err.message);
+  }
+}
+
+function mouseReleased() {
+  // Second path only: if the lock was lost or refused, a later tap on the
+  // canvas asks again. This never adds a tap of its own.
+  if (wantAwake && (!wakeLock || wakeLock.released)) {
+    requestWakeLock();
+  }
+  return false;
 }
 
 function draw() {
