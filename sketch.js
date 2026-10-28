@@ -1,13 +1,22 @@
 // ---- Tuning numbers (tune here) ----
-const TAP_TEXT_Y = 0.94;    // how far down the screen the text sits, as a fraction of its height
-const TAP_TEXT_SIZE = 16;   // "tap to start" text size in pixels
-const MOVE_SMOOTHING = 0.2; // how closely the movement number follows each frame's change (0-1)
+const TAP_TEXT_Y = 0.94;      // how far down the screen the text sits, as a fraction of its height
+const TAP_TEXT_SIZE = 16;     // "tap to start" text size in pixels
+const MOVE_SMOOTHING = 0.2;   // how closely the movement number follows each frame's change (0-1)
+const STEP_LEVEL = 1.0;       // how big a bump must be to count as a step (set from Step 4 readings)
+const STEP_GAP_MIN_MS = 250;  // bumps closer together than this are shaking, not walking
+const STEP_GAP_MAX_MS = 900;  // bumps further apart than this break the walking pace
+const STEPS_NEEDED = 3;       // bumps at a walking pace needed before walking turns true
+const WALK_TIMEOUT_MS = 1200; // time with no bump before walking turns false
 // ------------------------------------
 
 let startText;
 let wakeLock = null;
 let wantAwake = false;
 let moveLevel = 0;
+let walking = false;
+let bumpCount = 0;
+let lastBumpTime = null;
+let wasAboveLevel = false;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -67,6 +76,26 @@ function mouseReleased() {
   return false;
 }
 
+// One bump: the smoothed movement rose past STEP_LEVEL. Bumps too close
+// together are shaking; bumps too far apart are a new walk starting.
+function registerBump(now) {
+  if (lastBumpTime === null) {
+    bumpCount = 1;
+    lastBumpTime = now;
+    return;
+  }
+  const gap = now - lastBumpTime;
+  if (gap < STEP_GAP_MIN_MS) {
+    return;
+  }
+  if (gap > STEP_GAP_MAX_MS) {
+    bumpCount = 1;
+  } else {
+    bumpCount++;
+  }
+  lastBumpTime = now;
+}
+
 function draw() {
   background(0);
 
@@ -85,7 +114,23 @@ function draw() {
       accelerationZ - pAccelerationZ
     );
     moveLevel = lerp(moveLevel, raw, MOVE_SMOOTHING);
-    debug('move ' + moveLevel.toFixed(2));
+
+    // Rising past STEP_LEVEL counts one step-like bump
+    const above = moveLevel > STEP_LEVEL;
+    if (above && !wasAboveLevel) {
+      registerBump(millis());
+    }
+    wasAboveLevel = above;
+
+    if (bumpCount >= STEPS_NEEDED) {
+      walking = true;
+    }
+    if (walking && lastBumpTime !== null && millis() - lastBumpTime > WALK_TIMEOUT_MS) {
+      walking = false;
+      bumpCount = 0;
+    }
+
+    debug('move ' + moveLevel.toFixed(2) + ' | ' + (walking ? 'WALKING' : 'still') + ' | bumps ' + bumpCount);
   }
 }
 
