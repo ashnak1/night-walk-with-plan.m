@@ -1,12 +1,18 @@
 // ---- Tuning numbers (tune here) ----
-const TAP_TEXT_Y = 0.94;      // how far down the screen the text sits, as a fraction of its height
-const TAP_TEXT_SIZE = 16;     // "tap to start" text size in pixels
-const MOVE_SMOOTHING = 0.2;   // how closely the movement number follows each frame's change (0-1)
-const STEP_LEVEL = 1.0;       // how big a bump must be to count as a step (set from Step 4 readings)
-const STEP_GAP_MIN_MS = 250;  // bumps closer together than this are shaking, not walking
-const STEP_GAP_MAX_MS = 900;  // bumps further apart than this break the walking pace
-const STEPS_NEEDED = 3;       // bumps at a walking pace needed before walking turns true
-const WALK_TIMEOUT_MS = 1200; // time with no bump before walking turns false
+const TAP_TEXT_Y = 0.94;       // how far down the screen the text sits, as a fraction of its height
+const TAP_TEXT_SIZE = 16;      // "tap to start" text size in pixels
+const MOVE_SMOOTHING = 0.2;    // how closely the movement number follows each frame's change (0-1)
+const STEP_LEVEL = 1.0;        // how big a bump must be to count as a step (set from Step 4 readings)
+const STEP_GAP_MIN_MS = 250;   // bumps closer together than this are shaking, not walking
+const STEP_GAP_MAX_MS = 900;   // bumps further apart than this break the walking pace
+const STEPS_NEEDED = 3;        // bumps at a walking pace needed before walking turns true
+const WALK_TIMEOUT_MS = 1200;  // time with no bump before walking turns false
+const GLOW_Y = 0.65;           // glow centre, as a fraction of screen height (sits below the middle)
+const GLOW_SIZE = 0.75;        // outer edge of the glow, as a fraction of the smaller screen side
+const CORE_SIZE = 0.48;        // bright core, as a fraction of the smaller screen side
+const GLOW_LAYERS = 30;        // stacked circles making up the glow (more = smoother edge)
+const GLOW_LAYER_ALPHA = 12;   // transparency of each layer; the centre stacks up to bright
+const GLOW_COLOR = [255, 170, 80]; // warm amber, the glow and its core
 // ------------------------------------
 
 let startText;
@@ -96,8 +102,25 @@ function registerBump(now) {
   lastBumpTime = now;
 }
 
+// The lantern: stacked circles from the biggest and faintest to the smallest
+// and brightest. Sizing from min(width, height) keeps it inside the screen
+// when the phone is turned sideways.
+function drawGlow() {
+  const base = min(width, height);
+  const outer = base * GLOW_SIZE;
+  const core = base * CORE_SIZE;
+
+  noStroke();
+  for (let i = 0; i < GLOW_LAYERS; i++) {
+    const t = GLOW_LAYERS === 1 ? 1 : i / (GLOW_LAYERS - 1); // 0 = outermost, 1 = innermost
+    fill(GLOW_COLOR[0], GLOW_COLOR[1], GLOW_COLOR[2], GLOW_LAYER_ALPHA);
+    circle(width / 2, height * GLOW_Y, lerp(outer, core, t));
+  }
+}
+
 function draw() {
   background(0);
+  drawGlow();
 
   // The debug console appears once, when the start tap has been accepted
   if (startText && window.sensorsEnabled) {
