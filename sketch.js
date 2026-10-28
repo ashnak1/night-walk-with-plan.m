@@ -1,11 +1,13 @@
 // ---- Tuning numbers (tune here) ----
-const TAP_TEXT_Y = 0.94;   // how far down the screen the text sits, as a fraction of its height
-const TAP_TEXT_SIZE = 16;  // "tap to start" text size in pixels
+const TAP_TEXT_Y = 0.94;    // how far down the screen the text sits, as a fraction of its height
+const TAP_TEXT_SIZE = 16;   // "tap to start" text size in pixels
+const MOVE_SMOOTHING = 0.2; // how closely the movement number follows each frame's change (0-1)
 // ------------------------------------
 
 let startText;
 let wakeLock = null;
 let wantAwake = false;
+let moveLevel = 0;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -68,10 +70,22 @@ function mouseReleased() {
 function draw() {
   background(0);
 
-  // Once motion permission is granted, the text goes for good
+  // The debug console appears once, when the start tap has been accepted
   if (startText && window.sensorsEnabled) {
     startText.hide();
     startText = null;
+    showDebug();
+  }
+
+  // Read the motion only while the sensors are on
+  if (window.sensorsEnabled) {
+    const raw = mag(
+      accelerationX - pAccelerationX,
+      accelerationY - pAccelerationY,
+      accelerationZ - pAccelerationZ
+    );
+    moveLevel = lerp(moveLevel, raw, MOVE_SMOOTHING);
+    debug('move ' + moveLevel.toFixed(2));
   }
 }
 
