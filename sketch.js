@@ -16,7 +16,12 @@ const GLOW_SIZE = 0.75;        // outer edge of the glow, as a fraction of the s
 const CORE_SIZE = 0.48;        // bright core, as a fraction of the smaller screen side
 const GLOW_LAYERS = 30;        // stacked circles making up the glow (more = smoother edge)
 const GLOW_LAYER_ALPHA = 12;   // transparency of each layer at full level; the centre stacks to bright
-const GLOW_COLOR = [255, 170, 80]; // warm amber, the glow and its core
+const LANTERN_COLORS = [       // each lantern picks one at page load, kept until the page reloads
+  [255, 170, 80],              // amber, the warm one in the layout
+  [110, 190, 255],             // cool blue
+  [185, 120, 255],             // violet
+  [130, 255, 175],             // pale green
+];
 // ------------------------------------
 
 let startText;
@@ -28,9 +33,11 @@ let bumpCount = 0;
 let lastBumpTime = null;
 let wasAboveLevel = false;
 let glowLevel = 1; // 1 = full brightness, GLOW_MIN = almost dark
+let glowColor;     // this lantern's colour, chosen once at page load
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
+  glowColor = color(random(LANTERN_COLORS));
   lockGestures();
 
   // On a laptop there is no motion sensor to ask about, so show nothing
@@ -136,7 +143,7 @@ function drawGlow() {
   noStroke();
   for (let i = 0; i < GLOW_LAYERS; i++) {
     const t = GLOW_LAYERS === 1 ? 1 : i / (GLOW_LAYERS - 1); // 0 = outermost, 1 = innermost
-    fill(GLOW_COLOR[0], GLOW_COLOR[1], GLOW_COLOR[2], layerAlpha);
+    fill(red(glowColor), green(glowColor), blue(glowColor), layerAlpha);
     circle(width / 2, height * GLOW_Y, lerp(outer, core, t));
   }
 }
