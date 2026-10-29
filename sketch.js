@@ -23,6 +23,11 @@ const LANTERN_COLORS = [       // each lantern picks one at page load, kept unti
   [130, 255, 175],             // pale green
 ];
 const OBJECT_SIZE = 0.25;      // object inside the glow, as a fraction of the smaller screen side
+const LANTERN_OBJECTS = [      // the objects a lantern can show, picked at page load
+  'candle',
+  'bulb',
+  'pumpkin',
+];
 // ------------------------------------
 
 let startText;
@@ -35,10 +40,12 @@ let lastBumpTime = null;
 let wasAboveLevel = false;
 let glowLevel = 1; // 1 = full brightness, GLOW_MIN = almost dark
 let glowColor;     // this lantern's colour, chosen once at page load
+let lanternObject; // which object this lantern shows, chosen once at page load
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
   glowColor = color(random(LANTERN_COLORS));
+  lanternObject = random(LANTERN_OBJECTS);
   lockGestures();
 
   // On a laptop there is no motion sensor to ask about, so show nothing
@@ -149,20 +156,31 @@ function drawGlow() {
   }
 }
 
-// The object inside the core, starting with a candle flame: a teardrop drawn
-// with splineVertex (p5.js 2's curve vertex; curveVertex no longer exists).
-// It sits at the glow's centre and fades with the glow.
-function drawObject() {
-  const k = (OBJECT_SIZE * min(width, height)) / 2;
-  // A brighter version of the lantern's own colour
-  const r = lerp(red(glowColor), 255, 0.5);
-  const g = lerp(green(glowColor), 255, 0.5);
-  const b = lerp(blue(glowColor), 255, 0.5);
+// The object's main colour: the lantern's own colour whitened toward white,
+// so it glows brighter than the glow around it.
+function objectFill(whiten, alpha) {
+  fill(
+    lerp(red(glowColor), 255, whiten),
+    lerp(green(glowColor), 255, whiten),
+    lerp(blue(glowColor), 255, whiten),
+    alpha
+  );
+}
 
-  push();
-  translate(width / 2, height * GLOW_Y);
-  noStroke();
-  fill(r, g, b, 255 * glowLevel);
+// A darker shade of the lantern's colour, for stems and bases.
+function objectDark(alpha) {
+  fill(
+    lerp(red(glowColor), 0, 0.6),
+    lerp(green(glowColor), 0, 0.6),
+    lerp(blue(glowColor), 0, 0.6),
+    alpha
+  );
+}
+
+// Candle: a teardrop drawn with splineVertex (p5.js 2's curve vertex;
+// curveVertex no longer exists).
+function drawCandle(k) {
+  objectFill(0.5, 255 * glowLevel);
   beginShape();
   splineVertex(0, -k);              // tip
   splineVertex(0.45 * k, -0.2 * k); // right shoulder
@@ -172,6 +190,59 @@ function drawObject() {
   splineVertex(-0.45 * k, -0.2 * k); // left shoulder
   splineVertex(0, -k);              // tip again, so the outline closes smoothly
   endShape();
+}
+
+// Light bulb: round glass on top, small screw base below.
+function drawBulb(k) {
+  objectFill(0.6, 255 * glowLevel);
+  ellipse(0, -0.35 * k, 1.5 * k, 1.5 * k);
+
+  objectDark(255 * glowLevel);
+  rectMode(CENTER);
+  rect(0, 0.7 * k, 0.6 * k, 0.55 * k);
+}
+
+// Jack-o'-lantern: squat body, stem, and a dark face so it reads as carved.
+function drawPumpkin(k) {
+  objectDark(255 * glowLevel);
+  rectMode(CENTER);
+  rect(0, -0.95 * k, 0.22 * k, 0.45 * k); // stem
+
+  objectFill(0.45, 255 * glowLevel);
+  ellipse(0, 0.1 * k, 2.1 * k, 1.7 * k); // body, wider than tall
+
+  fill(0, 0, 0, 255 * glowLevel); // carved face
+  triangle(-0.65 * k, 0.05 * k, -0.25 * k, 0.05 * k, -0.45 * k, -0.35 * k); // left eye
+  triangle(0.25 * k, 0.05 * k, 0.65 * k, 0.05 * k, 0.45 * k, -0.35 * k);    // right eye
+  triangle(-0.15 * k, 0.35 * k, 0.15 * k, 0.35 * k, 0, 0.1 * k);            // nose
+  beginShape(); // grin
+  splineVertex(-0.65 * k, 0.45 * k);
+  splineVertex(-0.3 * k, 0.5 * k);
+  splineVertex(0, 0.5 * k);
+  splineVertex(0.3 * k, 0.5 * k);
+  splineVertex(0.65 * k, 0.45 * k);
+  splineVertex(0.45 * k, 0.75 * k);
+  splineVertex(0, 0.85 * k);
+  splineVertex(-0.45 * k, 0.75 * k);
+  splineVertex(-0.65 * k, 0.45 * k); // start point again, so it closes smoothly
+  endShape();
+}
+
+// The object inside the core, chosen at page load. It sits at the glow's
+// centre and fades with the glow.
+function drawObject() {
+  const k = (OBJECT_SIZE * min(width, height)) / 2;
+
+  push();
+  translate(width / 2, height * GLOW_Y);
+  noStroke();
+  if (lanternObject === 'bulb') {
+    drawBulb(k);
+  } else if (lanternObject === 'pumpkin') {
+    drawPumpkin(k);
+  } else {
+    drawCandle(k);
+  }
   pop();
 }
 
