@@ -22,6 +22,7 @@ const LANTERN_COLORS = [       // each lantern picks one at page load, kept unti
   [185, 120, 255],             // violet
   [130, 255, 175],             // pale green
 ];
+const OBJECT_SIZE = 0.25;      // object inside the glow, as a fraction of the smaller screen side
 // ------------------------------------
 
 let startText;
@@ -148,10 +149,37 @@ function drawGlow() {
   }
 }
 
+// The object inside the core, starting with a candle flame: a teardrop drawn
+// with splineVertex (p5.js 2's curve vertex; curveVertex no longer exists).
+// It sits at the glow's centre and fades with the glow.
+function drawObject() {
+  const k = (OBJECT_SIZE * min(width, height)) / 2;
+  // A brighter version of the lantern's own colour
+  const r = lerp(red(glowColor), 255, 0.5);
+  const g = lerp(green(glowColor), 255, 0.5);
+  const b = lerp(blue(glowColor), 255, 0.5);
+
+  push();
+  translate(width / 2, height * GLOW_Y);
+  noStroke();
+  fill(r, g, b, 255 * glowLevel);
+  beginShape();
+  splineVertex(0, -k);              // tip
+  splineVertex(0.45 * k, -0.2 * k); // right shoulder
+  splineVertex(0.55 * k, 0.45 * k); // right side
+  splineVertex(0, 0.9 * k);         // rounded bottom
+  splineVertex(-0.55 * k, 0.45 * k); // left side
+  splineVertex(-0.45 * k, -0.2 * k); // left shoulder
+  splineVertex(0, -k);              // tip again, so the outline closes smoothly
+  endShape();
+  pop();
+}
+
 function draw() {
   background(0);
   updateGlowLevel();
   drawGlow();
+  drawObject();
 
   // The debug console appears once, when the start tap has been accepted
   if (startText && window.sensorsEnabled) {
