@@ -144,8 +144,12 @@ function updateGlowLevel() {
 function drawGlow() {
   const base = min(width, height);
   const grow = map(glowLevel, GLOW_MIN, 1, 1, BIG_SCALE);
-  const outer = base * GLOW_SIZE * grow;
-  const core = base * CORE_SIZE * grow;
+  // Keep the glow fully on-screen when the phone is sideways: sideways the
+  // smaller side is the height, and the low centre would push the bottom edge
+  // past the bottom of the screen. Shrinking the whole glow keeps its shape.
+  const wanted = base * GLOW_SIZE * grow;
+  const outer = Math.min(wanted, 2 * (1 - GLOW_Y) * height);
+  const core = outer * (CORE_SIZE / GLOW_SIZE);
   const layerAlpha = GLOW_LAYER_ALPHA * glowLevel;
 
   noStroke();
@@ -252,11 +256,10 @@ function draw() {
   drawGlow();
   drawObject();
 
-  // The debug console appears once, when the start tap has been accepted
+  // The start text goes for good once the start tap has been accepted
   if (startText && window.sensorsEnabled) {
     startText.hide();
     startText = null;
-    showDebug();
   }
 
   // Read the motion only while the sensors are on
@@ -282,8 +285,6 @@ function draw() {
       walking = false;
       bumpCount = 0;
     }
-
-    debug('move ' + moveLevel.toFixed(2) + ' | ' + (walking ? 'WALKING' : 'still') + ' | bumps ' + bumpCount);
   }
 }
 
